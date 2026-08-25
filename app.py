@@ -8,7 +8,13 @@ uploaded_file = st.sidebar.file_uploader("Choose a file")
 
 if uploaded_file is not None:
     bytes_data = uploaded_file.getvalue()
+    try:
     data = bytes_data.decode("utf-8")
+except UnicodeDecodeError:
+    try:
+        data = bytes_data.decode("latin-1")
+    except:
+        data = bytes_data.decode("ISO-8859-1")
 
     df = preprocessor.preprocess(data)
 
