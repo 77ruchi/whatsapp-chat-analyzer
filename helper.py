@@ -13,6 +13,9 @@ def fetch_stats(selected_user, df):
     if selected_user != 'overall':
         df = df[df['user'] == selected_user]
 
+    # ✅ FIX: ensure string type
+    df['message'] = df['message'].fillna('').astype(str)
+
     num_messages = df.shape[0]
 
     # Total words
@@ -48,9 +51,15 @@ def create_wordcloud(selected_user, df):
     if selected_user != 'overall':
         df = df[df['user'] == selected_user]
 
-    # Clean data (ONLY once, no duplication)
+    # Clean data
     df = df[df['user'] != 'group_notification']
     df = df[df['message'] != '<Media omitted>']
+
+    # ✅ FIX: ensure string + remove empty
+    text = df['message'].fillna('').astype(str).str.cat(sep=" ")
+
+    if text.strip() == "":
+        return None
 
     wc = WordCloud(
         width=500,
@@ -59,9 +68,7 @@ def create_wordcloud(selected_user, df):
         background_color='white'
     )
 
-    df_wc = wc.generate(df['message'].str.cat(sep=" "))
-
-    return df_wc
+    return wc.generate(text)
 
 
 # -------------------- MOST COMMON WORDS --------------------
@@ -73,8 +80,10 @@ def most_common_words(selected_user, df):
     temp = df[df['user'] != 'group_notification']
     temp = temp[temp['message'] != '<Media omitted>']
 
-    words = []
+    # ✅ FIX: ensure string
+    temp['message'] = temp['message'].fillna('').astype(str)
 
+    words = []
     for message in temp['message']:
         words.extend(message.split())
 
@@ -92,10 +101,12 @@ def emoji_helper(selected_user, df):
     if selected_user != 'overall':
         df = df[df['user'] == selected_user]
 
-    emojis = []
+    # ✅ FIX: ensure string
+    df['message'] = df['message'].fillna('').astype(str)
 
+    emojis = []
     for message in df['message']:
-        emojis.extend([c for c in message if emoji.is_emoji(c)])  # ✅ FIXED
+        emojis.extend([c for c in message if emoji.is_emoji(c)])
 
     emoji_df = pd.DataFrame(
         Counter(emojis).most_common(),
@@ -103,10 +114,14 @@ def emoji_helper(selected_user, df):
     )
 
     return emoji_df
-#monthly timeline
+
+
+# -------------------- MONTHLY TIMELINE --------------------
 def monthly_timeline(selected_user, df):
+
     if selected_user != 'overall':
         df = df[df['user'] == selected_user]
+
     timeline = df.groupby(['year', 'month_num', 'month']).count()['message'].reset_index()
 
     time = []
@@ -117,16 +132,17 @@ def monthly_timeline(selected_user, df):
 
     return timeline
 
-#dailytimeline
+
+# -------------------- DAILY TIMELINE --------------------
 def daily_timeline(selected_user, df):
 
     if selected_user != 'overall':
         df = df[df['user'] == selected_user]
 
-    daily_timeline = df.groupby('only_date').count()['message'].reset_index()
+    return df.groupby('only_date').count()['message'].reset_index()
 
-    return daily_timeline
 
+# -------------------- WEEK ACTIVITY --------------------
 def week_activity_map(selected_user, df):
 
     if selected_user != 'overall':
@@ -134,13 +150,17 @@ def week_activity_map(selected_user, df):
 
     return df['day_name'].value_counts()
 
-def month_activity_map(selected_user,df):
 
-    if selected_user != 'Overall':
+# -------------------- MONTH ACTIVITY --------------------
+def month_activity_map(selected_user, df):
+
+    if selected_user != 'overall':   # ✅ FIXED (was 'Overall')
         df = df[df['user'] == selected_user]
 
     return df['month'].value_counts()
 
+
+# -------------------- HEATMAP --------------------
 def activity_heatmap(selected_user, df):
 
     if selected_user != 'overall':
@@ -157,6 +177,3 @@ def activity_heatmap(selected_user, df):
     )
 
     return user_heatmap.fillna(0)
-
-
-
