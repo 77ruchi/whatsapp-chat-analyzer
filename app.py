@@ -9,7 +9,7 @@ uploaded_file = st.sidebar.file_uploader("Choose a file")
 if uploaded_file is not None:
     bytes_data = uploaded_file.getvalue()
 
-    # ✅ FIX: handle encoding properly
+    # ✅ Encoding Fix
     try:
         data = bytes_data.decode("utf-8")
     except UnicodeDecodeError:
@@ -21,7 +21,7 @@ if uploaded_file is not None:
     # preprocess
     df = preprocessor.preprocess(data)
 
-    # ✅ VERY IMPORTANT FIX (this solves your error)
+    # ✅ Fix message column
     df['message'] = df['message'].fillna('').astype(str)
 
     # user list
@@ -42,21 +42,10 @@ if uploaded_file is not None:
         st.title("Top statistics")
         col1, col2, col3, col4 = st.columns(4)
 
-        with col1:
-            st.header("Total Messages")
-            st.title(num_messages)
-
-        with col2:
-            st.header("Total Words")
-            st.title(words)
-
-        with col3:
-            st.header("Media Messages")
-            st.title(num_med_message)
-
-        with col4:
-            st.header("Links Shared")
-            st.title(num_links)
+        col1.metric("Total Messages", num_messages)
+        col2.metric("Total Words", words)
+        col3.metric("Media Messages", num_med_message)
+        col4.metric("Links Shared", num_links)
 
         # ---------------- MONTHLY TIMELINE ----------------
         st.title("Monthly Timeline")
@@ -64,7 +53,7 @@ if uploaded_file is not None:
 
         fig, ax = plt.subplots()
         ax.plot(timeline['time'], timeline['message'])
-        plt.xticks(rotation='vertical')
+        plt.xticks(rotation=90)
         st.pyplot(fig)
 
         # ---------------- DAILY TIMELINE ----------------
@@ -73,7 +62,7 @@ if uploaded_file is not None:
 
         fig, ax = plt.subplots()
         ax.plot(daily_timeline['only_date'], daily_timeline['message'])
-        plt.xticks(rotation='vertical')
+        plt.xticks(rotation=90)
         st.pyplot(fig)
 
         # ---------------- ACTIVITY MAP ----------------
@@ -81,32 +70,30 @@ if uploaded_file is not None:
         col1, col2 = st.columns(2)
 
         with col1:
-            st.header("Most busy day")
+            st.subheader("Most busy day")
             busy_day = helper.week_activity_map(selected_user, df)
-
             fig, ax = plt.subplots()
             ax.bar(busy_day.index, busy_day.values)
-            plt.xticks(rotation='vertical')
+            plt.xticks(rotation=90)
             st.pyplot(fig)
 
         with col2:
-            st.header("Most busy month")
+            st.subheader("Most busy month")
             busy_month = helper.month_activity_map(selected_user, df)
-
             fig, ax = plt.subplots()
             ax.bar(busy_month.index, busy_month.values)
-            plt.xticks(rotation='vertical')
+            plt.xticks(rotation=90)
             st.pyplot(fig)
 
         # ---------------- HEATMAP ----------------
         st.title("Weekly Activity Map")
-        user_heatmap = helper.activity_heatmap(selected_user, df)
+        heatmap = helper.activity_heatmap(selected_user, df)
 
-        if user_heatmap.empty:
-            st.warning("No activity data available for this user.")
+        if heatmap.empty:
+            st.warning("No activity data available")
         else:
             fig, ax = plt.subplots()
-            sns.heatmap(user_heatmap, ax=ax)
+            sns.heatmap(heatmap, ax=ax)
             st.pyplot(fig)
 
         # ---------------- MOST BUSY USERS ----------------
@@ -119,7 +106,7 @@ if uploaded_file is not None:
             with col1:
                 fig, ax = plt.subplots()
                 ax.bar(x.index, x.values)
-                plt.xticks(rotation='vertical')
+                plt.xticks(rotation=90)
                 st.pyplot(fig)
 
             with col2:
@@ -130,22 +117,25 @@ if uploaded_file is not None:
 
         df_wc = helper.create_wordcloud(selected_user, df)
 
-        fig, ax = plt.subplots()
-        ax.imshow(df_wc)
-        ax.axis('off')
-        st.pyplot(fig)
+        if df_wc is not None:
+            fig, ax = plt.subplots()
+            ax.imshow(df_wc)
+            ax.axis('off')
+            st.pyplot(fig)
+        else:
+            st.warning("No words available to generate wordcloud.")
 
         # ---------------- MOST COMMON WORDS ----------------
         st.title("Most Common Words")
 
-        most_common_df = helper.most_common_words(selected_user, df)
+        common_df = helper.most_common_words(selected_user, df)
 
         fig, ax = plt.subplots()
-        ax.bar(most_common_df['word'], most_common_df['count'])
-        plt.xticks(rotation='vertical')
+        ax.bar(common_df['word'], common_df['count'])
+        plt.xticks(rotation=90)
         st.pyplot(fig)
 
-        # ---------------- EMOJI ANALYSIS ----------------
+        # ---------------- EMOJI ----------------
         st.title("Emoji Analysis")
 
         emoji_df = helper.emoji_helper(selected_user, df)
@@ -156,12 +146,7 @@ if uploaded_file is not None:
             st.dataframe(emoji_df)
 
         with col2:
-            emoji_df_top = emoji_df.head(5)
-
+            top = emoji_df.head(5)
             fig, ax = plt.subplots()
-            ax.pie(
-                emoji_df_top['count'],
-                labels=emoji_df_top['emoji'],
-                autopct='%1.1f%%'
-            )
+            ax.pie(top['count'], labels=top['emoji'], autopct='%1.1f%%')
             st.pyplot(fig)
