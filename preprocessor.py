@@ -1,6 +1,7 @@
 import re
 import pandas as pd
 
+
 def preprocess(data):
     # correct regex (raw string + supports 24hr time)
     pattern = r'\d{1,2}/\d{1,2}/\d{2},\s\d{2}:\d{2}'
@@ -18,16 +19,13 @@ def preprocess(data):
         format="%d/%m/%y, %H:%M",
         errors='coerce'
     )
-
     df.rename(columns={'message_date': 'date'}, inplace=True)
 
     # extract users and messages
     users = []
     messages = []
-
     for msg in df['user_message']:
         entry = re.split(r'([\w\W]+?):\s', msg)
-
         if len(entry) > 2:
             users.append(entry[1])
             messages.append(entry[2])
@@ -37,10 +35,9 @@ def preprocess(data):
 
     df['user'] = users
     df['message'] = messages
-
     df.drop(columns=['user_message'], inplace=True)
 
-    # remove rows where date failed
+    # remove rows where date failed to parse
     df = df.dropna(subset=['date'])
 
     # datetime features
@@ -53,19 +50,9 @@ def preprocess(data):
     df['day_name'] = df['date'].dt.day_name()
     df['minute'] = df['date'].dt.minute
 
-    period = []
-    for hour in df['hour']:
-        if hour == 23:
-            period.append(str(hour) + "-" + str('00'))
-        elif hour == 0:
-            period.append(str('00') + "-" + str(hour + 1))
-        else:
-            period.append(str(hour) + "-" + str(hour + 1))
+    # build the hourly "period" bucket, e.g. "9-10", "23-00", "00-1"
     df['period'] = df['hour'].apply(
-        lambda x: f"{x}-{(x + 1) % 24}"
+        lambda h: f"{h}-00" if h == 23 else (f"00-{h + 1}" if h == 0 else f"{h}-{h + 1}")
     )
-
-    df['period'] = period
-
 
     return df
