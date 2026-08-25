@@ -3,23 +3,29 @@ import preprocessor, helper
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+st.set_page_config(page_title="WhatsApp Chat Analyzer", layout="wide")
+
 st.sidebar.title("WhatsApp Chat Analyzer")
 uploaded_file = st.sidebar.file_uploader("Choose a file")
 
 if uploaded_file is not None:
     bytes_data = uploaded_file.getvalue()
 
-    # ✅ Encoding Fix
+    # ✅ Handle encoding safely
     try:
         data = bytes_data.decode("utf-8")
     except UnicodeDecodeError:
         try:
             data = bytes_data.decode("latin-1")
-        except:
+        except UnicodeDecodeError:
             data = bytes_data.decode("ISO-8859-1")
 
-    # preprocess
+    # preprocess data
     df = preprocessor.preprocess(data)
+
+    if df.empty:
+        st.error("No valid messages could be parsed from this file. Please make sure it's an exported WhatsApp chat (.txt).")
+        st.stop()
 
     # ✅ Fix message column
     df['message'] = df['message'].fillna('').astype(str)
@@ -39,13 +45,13 @@ if uploaded_file is not None:
         # ---------------- STATS ----------------
         num_messages, words, num_med_message, num_links = helper.fetch_stats(selected_user, df)
 
-        st.title("Top statistics")
+        st.title("Top Statistics")
         col1, col2, col3, col4 = st.columns(4)
 
-        col1.metric("Total Messages", num_messages)
-        col2.metric("Total Words", words)
-        col3.metric("Media Messages", num_med_message)
-        col4.metric("Links Shared", num_links)
+        col1.metric("Messages", num_messages)
+        col2.metric("Words", words)
+        col3.metric("Media", num_med_message)
+        col4.metric("Links", num_links)
 
         # ---------------- MONTHLY TIMELINE ----------------
         st.title("Monthly Timeline")
@@ -58,19 +64,19 @@ if uploaded_file is not None:
 
         # ---------------- DAILY TIMELINE ----------------
         st.title("Daily Timeline")
-        daily_timeline = helper.daily_timeline(selected_user, df)
+        daily = helper.daily_timeline(selected_user, df)
 
         fig, ax = plt.subplots()
-        ax.plot(daily_timeline['only_date'], daily_timeline['message'])
+        ax.plot(daily['only_date'], daily['message'])
         plt.xticks(rotation=90)
         st.pyplot(fig)
 
-        # ---------------- ACTIVITY MAP ----------------
+        # ---------------- ACTIVITY ----------------
         st.title("Activity Map")
         col1, col2 = st.columns(2)
 
         with col1:
-            st.subheader("Most busy day")
+            st.subheader("Busy Days")
             busy_day = helper.week_activity_map(selected_user, df)
             fig, ax = plt.subplots()
             ax.bar(busy_day.index, busy_day.values)
@@ -78,7 +84,7 @@ if uploaded_file is not None:
             st.pyplot(fig)
 
         with col2:
-            st.subheader("Most busy month")
+            st.subheader("Busy Months")
             busy_month = helper.month_activity_map(selected_user, df)
             fig, ax = plt.subplots()
             ax.bar(busy_month.index, busy_month.values)
@@ -86,7 +92,7 @@ if uploaded_file is not None:
             st.pyplot(fig)
 
         # ---------------- HEATMAP ----------------
-        st.title("Weekly Activity Map")
+        st.title("Weekly Activity Heatmap")
         heatmap = helper.activity_heatmap(selected_user, df)
 
         if heatmap.empty:
@@ -96,7 +102,7 @@ if uploaded_file is not None:
             sns.heatmap(heatmap, ax=ax)
             st.pyplot(fig)
 
-        # ---------------- MOST BUSY USERS ----------------
+        # ---------------- BUSY USERS ----------------
         if selected_user == "overall":
             st.title("Most Busy Users")
 
@@ -115,25 +121,28 @@ if uploaded_file is not None:
         # ---------------- WORDCLOUD ----------------
         st.title("Wordcloud")
 
-        df_wc = helper.create_wordcloud(selected_user, df)
+        wc = helper.create_wordcloud(selected_user, df)
 
-        if df_wc is not None:
+        if wc is not None:
             fig, ax = plt.subplots()
-            ax.imshow(df_wc)
+            ax.imshow(wc)
             ax.axis('off')
             st.pyplot(fig)
         else:
             st.warning("No words available to generate wordcloud.")
 
-        # ---------------- MOST COMMON WORDS ----------------
+        # ---------------- COMMON WORDS ----------------
         st.title("Most Common Words")
 
-        common_df = helper.most_common_words(selected_user, df)
+        common = helper.most_common_words(selected_user, df)
 
-        fig, ax = plt.subplots()
-        ax.bar(common_df['word'], common_df['count'])
-        plt.xticks(rotation=90)
-        st.pyplot(fig)
+        if common.empty:
+            st.warning("No common words available.")
+        else:
+            fig, ax = plt.subplots()
+            ax.bar(common['word'], common['count'])
+            plt.xticks(rotation=90)
+            st.pyplot(fig)
 
         # ---------------- EMOJI ----------------
         st.title("Emoji Analysis")
@@ -147,6 +156,10 @@ if uploaded_file is not None:
 
         with col2:
             top = emoji_df.head(5)
-            fig, ax = plt.subplots()
-            ax.pie(top['count'], labels=top['emoji'], autopct='%1.1f%%')
-            st.pyplot(fig)
+
+            if not top.empty:
+                fig, ax = plt.subplots()
+                ax.pie(top['count'], labels=top['emoji'], autopct='%1.1f%%')
+                st.pyplot(fig)
+            else:
+                st.warning("No emojis found.")
